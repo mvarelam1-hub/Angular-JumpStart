@@ -1,0 +1,45 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-analyze:
+    name: Build, Test y Análisis SonarQube Cloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código (historial completo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necesario para que SonarQube Cloud calcule New Code y blame
+
+      - name: Configurar Node.js 16 (compatible con Angular 14)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --legacy-peer-deps
+
+      - name: Compilar el proyecto (ng build)
+        run: npm run build
+
+      - name: Pruebas unitarias
+        run: |
+          if [ -n "$(find src -name '*.spec.ts')" ]; then
+            npx ng test --watch=false --browsers=ChromeHeadless --code-coverage
+          else
+            echo "El proyecto no tiene pruebas unitarias configuradas (no hay archivos *.spec.ts ni target 'test' en angular.json)."
+          fi
+
+      - name: Análisis SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
